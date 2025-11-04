@@ -19,6 +19,26 @@ cursor = conn_cep.cursor()
 
 print("\n⚙️ Exécution des mises à jour automatiques...\n")
 
+
+clean_spaces_nlivret = """
+UPDATE dbo.TblLivret
+SET NLivret = LTRIM(RTRIM(NLivret))
+WHERE LEFT(NLivret, 5) = ?
+"""
+cursor.execute(clean_spaces_nlivret, codique)
+conn_cep.commit()
+print("🧹 Espaces supprimés dans NLivret.")
+
+delete_invalid_nlivret = """
+DELETE FROM dbo.TblLivret
+WHERE LEFT(NLivret, 5) = ?
+  AND (NLivret IS NULL OR LEN(NLivret) <> 10)
+"""
+cursor.execute(delete_invalid_nlivret, codique)
+conn_cep.commit()
+print(f"🗑️ {cursor.rowcount} lignes supprimées avec NLivret invalide (< ou > 10 caractères).")
+
+
 update_to_true = """
 UPDATE dbo.TblLivret
 SET CompteJoint = 1
