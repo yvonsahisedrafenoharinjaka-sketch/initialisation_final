@@ -3,10 +3,9 @@ import pandas as pd
 import math
 import re
 
-# === 🔹 Saisie du codique ===
 codique = input("🔹 Entrez le codique du bureau à récupérer (ex: 10101) : ").strip()
 
-# === 🔹 Connexion SQL Server ===
+
 driver = '{ODBC Driver 17 for SQL Server}'
 conn_cep = pyodbc.connect(
     f'DRIVER={driver};'
@@ -20,7 +19,6 @@ cursor = conn_cep.cursor()
 
 print("\n⚙️ Exécution des mises à jour automatiques...\n")
 
-# === 1️⃣ CompteJoint = 1 si conjoint existe ===
 update_to_true = """
 UPDATE dbo.TblLivret
 SET CompteJoint = 1
@@ -37,7 +35,6 @@ WHERE
 cursor.execute(update_to_true, codique)
 conn_cep.commit()
 
-# === 2️⃣ CompteJoint = 0 + DateCINCJoint = NULL si tout vide ===
 update_to_false = """
 UPDATE dbo.TblLivret
 SET 
@@ -55,7 +52,6 @@ WHERE
 cursor.execute(update_to_false, codique)
 conn_cep.commit()
 
-# === 3️⃣ Si DateCIN est NULL → DateOuverture ===
 update_datecin = """
 UPDATE dbo.TblLivret
 SET DateCIN = DateOuverture
@@ -66,7 +62,6 @@ WHERE
 cursor.execute(update_datecin, codique)
 conn_cep.commit()
 
-# === 4️⃣ Si CINDemandeur est NULL ou invalide → '900000900000' ===
 update_cindemandeur = """
 UPDATE dbo.TblLivret
 SET CINDemandeur = '900000900000'
@@ -82,7 +77,6 @@ cursor.execute(update_cindemandeur, codique)
 print(f"🟢 {cursor.rowcount} lignes corrigées pour CINDemandeur.")
 conn_cep.commit()
 
-# === 5️⃣ Si DateCINDemandeur est NULL → 1990-01-01 ===
 update_datecindemandeur = """
 UPDATE dbo.TblLivret
 SET DateCINDemandeur = '1990-01-01'
@@ -94,7 +88,6 @@ cursor.execute(update_datecindemandeur, codique)
 conn_cep.commit()
 print(f"🟢 {cursor.rowcount} lignes mises à jour pour DateCINDemandeur.")
 
-# === 6️⃣ Si DatenaissCLI est NULL → DateOuverture ===
 update_datenaiss = """
 UPDATE dbo.TblLivret
 SET DatenaissCLI = DateOuverture
@@ -106,7 +99,6 @@ cursor.execute(update_datenaiss, codique)
 conn_cep.commit()
 print(f"🟢 {cursor.rowcount} lignes mises à jour pour DatenaissCLI.")
 
-# === Mise à jour DateSolde si NULL → DateOuverture ===
 update_datesolde = """
 UPDATE dbo.TblLivret
 SET DateSolde = DateOuverture
@@ -119,8 +111,6 @@ conn_cep.commit()
 print(f"🟢 {rows} lignes mises à jour pour DateSolde.")
 
 
-# === 🔹 Nettoyage complet de Nationalité ===
-# 🔹 Nettoyage de Nationalité pour retirer les espaces, tabulations, retours chariot
 clean_nationalite = """
 UPDATE dbo.TblLivret
 SET Nationalité = LTRIM(RTRIM(REPLACE(REPLACE(REPLACE(Nationalité, CHAR(9), ''), CHAR(10), ''), CHAR(13), '')))
@@ -129,7 +119,6 @@ WHERE LEFT(NLivret, 5) = ?
 cursor.execute(clean_nationalite, codique)
 conn_cep.commit()
 
-# 🔹 Mise à jour si Nationalité vide ou non numérique
 update_nationalite = """
 UPDATE dbo.TblLivret
 SET Nationalité = '22'
@@ -145,7 +134,6 @@ conn_cep.commit()
 print(f"🟢 {cursor.rowcount} lignes mises à jour pour Nationalité = 22")
 
 
-# === 🔹 Nettoyage préalable de TypeClient et des colonnes utilisées ===
 clean_columns = """
 UPDATE dbo.TblLivret
 SET NomCLI = LTRIM(RTRIM(NomCLI)),
@@ -160,7 +148,6 @@ cursor.execute(clean_columns, codique)
 conn_cep.commit()
 
 
-# 🔹 Mise à jour NumTel si non numérique → NULL
 update_numtel = """
 UPDATE dbo.TblLivret
 SET NumTel = NULL
@@ -172,7 +159,6 @@ conn_cep.commit()
 print(f"🟢 {cursor.rowcount} lignes mises à jour pour NumTel = NULL")
 
 
-# === 🔹 Mise à jour unique de TypeClient avec CASE ===
 update_typeclient = """
 UPDATE dbo.TblLivret
 SET TypeClient = CASE
@@ -219,18 +205,17 @@ print(f"🟢 {cursor.rowcount} lignes mises à jour pour TypeClient (mise à jou
 # conn_cep.commit()
 
 
-# === 8️⃣ Récupération de toutes les données ===
 query_cep = "SELECT * FROM dbo.TblLivret WHERE LEFT(NLivret, 5) = ?"
 df_cep = pd.read_sql(query_cep, conn_cep, params=[codique])
 print(f"📊 {len(df_cep)} lignes récupérées pour le codique {codique}.\n")
 
-# === 🔹 Nettoyage des champs ===
+
 def nettoyer_champs(df):
     for col in df.select_dtypes(include=['object']).columns:
         df[col] = df[col].astype(str).apply(lambda x: re.sub(r'[\r\n]+', ' ', x).strip())
     return df
 
-# === 🔹 Harmonisation ===
+
 def harmoniser_dataframe(df, colonnes_source, slug):
     colonnes_cibles = {col: pd.NA for col in [
         'n_livret', 'nom_cli', 'prenoms_cli', 'date_naiss_cli', 'lieu_naiss_cli',
@@ -250,7 +235,6 @@ def harmoniser_dataframe(df, colonnes_source, slug):
     df['slug'] = slug
     return df[list(colonnes_cibles.keys()) + ['slug']]
 
-# === Correspondance des colonnes ===
 colonnes_cep = {
     'NLivret': 'n_livret', 'NomCLI': 'nom_cli', 'PrénomsCLI': 'prenoms_cli',
     'DatenaissCLI': 'date_naiss_cli', 'LieunaissCLI': 'lieu_naiss_cli', 'AdresseCLI': 'adresse_cli',
@@ -268,7 +252,7 @@ colonnes_cep = {
     'ConvSolde': 'conv_solde', 'ConvPV': 'conv_pv', 'SoldePrec': 'solde_prec', 'NumTel': 'num_tel', 'kodik': 'kodik'
 }
 
-# === 9️⃣ Nettoyage + Export CSV ===
+
 df_final = harmoniser_dataframe(df_cep, colonnes_cep, 'TL')
 df_final = nettoyer_champs(df_final)
 
