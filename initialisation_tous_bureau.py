@@ -3,8 +3,8 @@ import pandas as pd
 import math
 import re
 
-
-codique = input("🔹 Entrez le codique du bureau à récupérer (ex: 10101) : ").strip()
+# ⚠️ Plus de demande de codique
+codique = "ALL"   # utilisé seulement pour le nom des fichiers exportés
 
 driver = '{ODBC Driver 17 for SQL Server}'
 uid = 'sa'
@@ -27,87 +27,80 @@ cursor_baseta = conn_baseta.cursor()
 
 print("\n⚙️ Exécution des mises à jour automatiques...\n")
 
+# 🔹 Nettoyage NLivret (plus aucune condition codique)
 clean_spaces_nlivret = """
 UPDATE dbo.TblLivret
 SET NLivret = LTRIM(RTRIM(NLivret))
-WHERE LEFT(NLivret, 5) = ?
+WHERE NLivret IS NOT NULL
 """
-cursor_cep.execute(clean_spaces_nlivret, codique)
+cursor_cep.execute(clean_spaces_nlivret)
 conn_cep.commit()
-print("🧹 Espaces supprimés dans NLivret.")
 
-
+# 🔹 Suppression NLivret invalides (sans codique)
 delete_invalid_nlivret = """
 DELETE FROM dbo.TblLivret
-WHERE LEFT(NLivret, 5) = ?
-  AND (NLivret IS NULL OR LEN(NLivret) <> 10)
+WHERE NLivret IS NULL OR LEN(NLivret) <> 10
 """
-cursor_cep.execute(delete_invalid_nlivret, codique)
+cursor_cep.execute(delete_invalid_nlivret)
 conn_cep.commit()
-print(f"🗑️ {cursor_cep.rowcount} lignes supprimées avec NLivret invalide (< ou > 10 caractères).")
 
-
+# 🔹 Mises à jour compte joint CEP (sans codique)
 update_to_true_cep = """
 UPDATE dbo.TblLivret
 SET CompteJoint = 1
 WHERE 
-    LEFT(NLivret, 5) = ? AND
-    (
-        (NomCJoint IS NOT NULL AND LTRIM(RTRIM(NomCJoint)) <> '') OR
-        (PrenomsCJoint IS NOT NULL AND LTRIM(RTRIM(PrenomsCJoint)) <> '') OR
-        (CINCjoint IS NOT NULL AND LTRIM(RTRIM(CINCjoint)) <> '') OR
-        (AdrCjoint IS NOT NULL AND LTRIM(RTRIM(AdrCjoint)) <> '')
-    )
+    (NomCJoint IS NOT NULL AND LTRIM(RTRIM(NomCJoint)) <> '') OR
+    (PrenomsCJoint IS NOT NULL AND LTRIM(RTRIM(PrenomsCJoint)) <> '') OR
+    (CINCjoint IS NOT NULL AND LTRIM(RTRIM(CINCjoint)) <> '') OR
+    (AdrCjoint IS NOT NULL AND LTRIM(RTRIM(AdrCjoint)) <> '')
 """
-cursor_cep.execute(update_to_true_cep, codique)
+cursor_cep.execute(update_to_true_cep)
 conn_cep.commit()
 
 update_to_false_cep = """
 UPDATE dbo.TblLivret
 SET CompteJoint = 0, DateCINCJoint = NULL
 WHERE 
-    LEFT(NLivret, 5) = ? AND
-    (
-        (NomCJoint IS NULL OR LTRIM(RTRIM(NomCJoint)) = '') AND
-        (PrenomsCJoint IS NULL OR LTRIM(RTRIM(PrenomsCJoint)) = '') AND
-        (CINCjoint IS NULL OR LTRIM(RTRIM(CINCjoint)) = '') AND
-        (AdrCjoint IS NULL OR LTRIM(RTRIM(AdrCjoint)) = '')
-    )
+    (NomCJoint IS NULL OR LTRIM(RTRIM(NomCJoint)) = '') AND
+    (PrenomsCJoint IS NULL OR LTRIM(RTRIM(PrenomsCJoint)) = '') AND
+    (CINCjoint IS NULL OR LTRIM(RTRIM(CINCjoint)) = '') AND
+    (AdrCjoint IS NULL OR LTRIM(RTRIM(AdrCjoint)) = '')
 """
-cursor_cep.execute(update_to_false_cep, codique)
+cursor_cep.execute(update_to_false_cep)
 conn_cep.commit()
-print(f"🟢 CEP mis à jour (CompteJoint)")
 
+print("🟢 CEP mis à jour (CompteJoint)")
+
+# 🔹 Mise à jour compte joint BaseTA (sans codique)
 update_to_true_ta = """
 UPDATE dbo.TblCompte
 SET CJoint = 1
 WHERE 
-    LEFT(NCompte, 5) = ? AND
-    (
-        (NomConj IS NOT NULL AND LTRIM(RTRIM(NomConj)) <> '') OR
-        (PrenomConj IS NOT NULL AND LTRIM(RTRIM(PrenomConj)) <> '') OR
-        (CINConj IS NOT NULL AND LTRIM(RTRIM(CINConj)) <> '') OR
-        (AdressConj IS NOT NULL AND LTRIM(RTRIM(AdressConj)) <> '')
-    )
+    (NomConj IS NOT NULL AND LTRIM(RTRIM(NomConj)) <> '') OR
+    (PrenomConj IS NOT NULL AND LTRIM(RTRIM(PrenomConj)) <> '') OR
+    (CINConj IS NOT NULL AND LTRIM(RTRIM(CINConj)) <> '') OR
+    (AdressConj IS NOT NULL AND LTRIM(RTRIM(AdressConj)) <> '')
 """
-cursor_baseta.execute(update_to_true_ta, codique)
+cursor_baseta.execute(update_to_true_ta)
 conn_baseta.commit()
 
 update_to_false_ta = """
 UPDATE dbo.TblCompte
 SET CJoint = 0
 WHERE 
-    LEFT(NCompte, 5) = ? AND
-    (
-        (NomConj IS NULL OR LTRIM(RTRIM(NomConj)) = '') AND
-        (PrenomConj IS NULL OR LTRIM(RTRIM(PrenomConj)) = '') AND
-        (CINConj IS NULL OR LTRIM(RTRIM(CINConj)) = '') AND
-        (AdressConj IS NULL OR LTRIM(RTRIM(AdressConj)) = '')
-    )
+    (NomConj IS NULL OR LTRIM(RTRIM(NomConj)) = '') AND
+    (PrenomConj IS NULL OR LTRIM(RTRIM(PrenomConj)) = '') AND
+    (CINConj IS NULL OR LTRIM(RTRIM(CINConj)) = '') AND
+    (AdressConj IS NULL OR LTRIM(RTRIM(AdressConj)) = '')
 """
-cursor_baseta.execute(update_to_false_ta, codique)
+cursor_baseta.execute(update_to_false_ta)
 conn_baseta.commit()
-print(f"🟢 BaseTA mise à jour (CJoint)\n")
+
+print("🟢 BaseTA mise à jour (CJoint)\n")
+
+# ───────────────────────────────────────────────────────────────
+# 📌 Fonctions
+# ───────────────────────────────────────────────────────────────
 
 def nettoyer_champs(df):
     for col in df.select_dtypes(include=['object']).columns:
@@ -186,10 +179,11 @@ colonnes_dbtf = {
     'DateOuverture': 'date_ouverture'
 }
 
-df_cep = pd.read_sql("SELECT * FROM dbo.TblLivret WHERE LEFT(NLivret, 5) = ?", conn_cep, params=[codique])
-df_baseta = pd.read_sql("SELECT * FROM dbo.TblCompte WHERE LEFT(NCompte, 5) = ?", conn_baseta, params=[codique])
-df_dbtf = pd.read_sql("SELECT * FROM dbo.TblComptes WHERE LEFT(NCompte, 5) = ?", conn_dbtf, params=[codique])
+df_cep = pd.read_sql("SELECT * FROM dbo.TblLivret", conn_cep)
+df_baseta = pd.read_sql("SELECT * FROM dbo.TblCompte", conn_baseta)
+df_dbtf = pd.read_sql("SELECT * FROM dbo.TblComptes", conn_dbtf)
 
+# Calcul solde TF (sans codique)
 query_solde_tf = """
 SELECT 
     C.NCompte,
@@ -199,14 +193,12 @@ SELECT
 FROM TblComptes C
 LEFT JOIN TblOperations O ON C.NCompte = O.NCompte
 LEFT JOIN TblInteretAnnuel I ON C.NCompte = I.NCompte
-WHERE LEFT(C.NCompte, 5) = ?
 GROUP BY C.NCompte
 """
 
-df_solde_tf = pd.read_sql(query_solde_tf, conn_dbtf, params=[codique])
+df_solde_tf = pd.read_sql(query_solde_tf, conn_dbtf)
 
 df_dbtf = df_dbtf.merge(df_solde_tf[['NCompte', 'SoldeFinal']], on='NCompte', how='left')
-
 df_dbtf['solde'] = df_dbtf['SoldeFinal']
 
 df_cep = harmoniser_dataframe(nettoyer_champs(df_cep), colonnes_cep, 'TL')
